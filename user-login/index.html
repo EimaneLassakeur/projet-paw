@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Manager</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        h1 {
+            color: #333;
+        }
+        .form-container {
+            margin-top: 20px;
+            display: none;
+        }
+        input[type="text"], input[type="password"], input[type="date"], input[type="email"] {
+            padding: 10px;
+            margin: 5px 0;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        select {
+            padding: 10px;
+            margin: 5px 0;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 10px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        #taskList {
+            margin-top: 20px;
+        }
+        .task {
+            background: #fff;
+            padding: 10px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+        }
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Task Manager</h1>
+
+    <div id="loginForm" class="form-container">
+        <h2>Login</h2>
+        <input type="email" id="loginEmail" placeholder="Email" required>
+        <input type="password" id="loginPassword" placeholder="Password" required>
+        <button onclick="login()">Login</button>
+        <p id="loginError" class="error"></p>
+    </div>
+
+    <div id="registerForm" class="form-container">
+        <h2>Register</h2>
+        <input type="email" id="registerEmail" placeholder="Email" required>
+        <input type="password" id="registerPassword" placeholder="Password" required>
+        <button onclick="register()">Register</button>
+        <p id="registerError" class="error"></p>
+    </div>
+
+    <div id="taskForm" class="form-container">
+        <h2>Add Task</h2>
+        <input type="text" id="taskTitle" placeholder="Task Title" required>
+        <input type="text" id="taskDescription" placeholder="Task Description" required>
+        <select id="taskPriority">
+            <option value="low">Low Priority</option>
+            <option value="medium">Medium Priority</option>
+            <option value="high">High Priority</option>
+        </select>
+        <input type="date" id="taskDueDate" required>
+        <button onclick="addTask()">Add Task</button>
+        <div id="taskList"></div>
+    </div>
+
+    <script>
+        document.getElementById('loginForm').style.display = 'block';
+        document.getElementById('registerForm').style.display = 'none';
+        document.getElementById('taskForm').style.display = 'none';
+
+        async function login() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+
+            const response = await fetch('http://localhost:3000/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ email, password })
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                document.getElementById('loginForm').style.display = 'none';
+                document.getElementById('taskForm').style.display = 'block';
+                loadTasks();
+            } else {
+                document.getElementById('loginError').innerText = data.message;
+            }
+        }
+
+        async function register() {
+            const email = document.getElementById('registerEmail').value;
+            const password = document.getElementById('registerPassword').value;
+
+            const response = await fetch('http://localhost:3000/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ email , password })
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                alert('Registration successful! You can now log in with your new account.');
+                document.getElementById('registerForm').style.display = 'none';
+                document.getElementById('loginForm').style.display = 'block';
+            } else {
+                document.getElementById('registerError').innerText = data.message;
+            }
+        }
+
+        async function addTask() {
+            const title = document.getElementById('taskTitle').value;
+            const description = document.getElementById('taskDescription').value;
+            const priority = document.getElementById('taskPriority').value;
+            const dueDate = document.getElementById('taskDueDate').value;
+
+            const response = await fetch('http://localhost:3000/addTask', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ title, description, priority, due_date: dueDate })
+            });
+
+            if (response.ok) {
+                loadTasks();
+                document.getElementById('taskTitle').value = '';
+                document.getElementById('taskDescription').value = '';
+                document.getElementById('taskPriority').value = 'low';
+                document.getElementById('taskDueDate').value = '';
+            } else {
+                alert('Error adding task');
+            }
+        }
+
+        async function loadTasks() {
+            const response = await fetch('http://localhost:3000/showTasks');
+            const tasks = await response.json();
+            const taskList = document.getElementById('taskList');
+            taskList.innerHTML = '';
+
+            tasks.forEach(task => {
+                const taskDiv = document.createElement('div');
+                taskDiv.className = 'task';
+                taskDiv.innerHTML = `
+                    <strong>${task.title}</strong><br>
+                    ${task.description}<br>
+                    Priority: ${task.priority}<br>
+                    Due: ${task.due_date} 
+                    <button onclick="deleteTask(${task.id})">Delete</button>
+                    <button onclick="editTask(${task.id}, '${task.title}', '${task.description}', '${task.priority}', '${task.due_date}')">Edit</button>
+                `;
+                taskList.appendChild(taskDiv);
+            });
+        }
+
+        async function deleteTask(taskId) {
+            const response = await fetch(`http://localhost:3000/tasks/${taskId}`, {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                loadTasks();
+            } else {
+                alert('Error deleting task');
+            }
+        }
+
+        function editTask(taskId, title, description, priority, dueDate) {
+            document.getElementById('taskTitle').value = title;
+            document.getElementById('taskDescription').value = description;
+            document.getElementById('taskPriority').value = priority;
+            document.getElementById('taskDueDate').value = dueDate;
+
+            const addButton = document.querySelector('button[onclick="addTask()"]');
+            addButton.innerText = 'Update Task';
+            addButton.setAttribute('onclick', `updateTask(${taskId})`);
+        }
+
+        async function updateTask(taskId) {
+            const title = document.getElementById('taskTitle').value;
+            const description = document.getElementById('taskDescription').value;
+            const priority = document.getElementById('taskPriority').value;
+            const dueDate = document.getElementById('taskDueDate').value;
+
+            const response = await fetch(`http://localhost:3000/tasks/${taskId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ title, description, priority, due_date: dueDate })
+            });
+
+            if (response.ok) {
+                loadTasks();
+                document.getElementById('taskTitle').value = '';
+                document.getElementById('taskDescription').value = '';
+                document.getElementById('taskPriority').value = 'low';
+                document.getElementById('taskDueDate').value = '';
+                const addButton = document.querySelector('button[onclick^="updateTask"]');
+                addButton.innerText = 'Add Task';
+                addButton.setAttribute('onclick', 'addTask()');
+            } else {
+                alert('Error updating task');
+            }
+        }
+    </script>
+
+</body>
+</html>

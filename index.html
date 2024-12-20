@@ -3,9 +3,281 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Task Manager</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        h1 {
+            color: #333;
+        }
+        .form-container {
+            margin-top: 20px;
+            display: none;
+        }
+        input, select {
+            padding: 10px;
+            margin: 5px 0;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 10px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        #taskList {
+            margin-top: 20px;
+        }
+        .task {
+            background: #fff;
+            padding: 10px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+        }
+        .error {
+            color: red;
+        }
+    </style>
 </head>
 <body>
-    <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Ab nemo architecto maxime recusandae suscipit, laborum sed ratione hic ipsam facilis quaerat molestiae. Mollitia iure laborum sed. Adipisci iusto enim expedita!</p>
+
+    <h1>Task Manager</h1>
+
+    <!-- Login Form -->
+    <div id="loginForm" class="form-container">
+        <h2>Login</h2>
+        <input type="email" id="loginEmail" placeholder="Email" required>
+        <input type="password" id="loginPassword" placeholder="Password" required>
+        <button onclick="login()">Login</button>
+        <p id="loginError" class="error"></p>
+        <p>Don't have an account? <a href="#" onclick="showRegisterForm()">Register here</a></p>
+    </div>
+
+    <!-- Register Form -->
+    <div id="registerForm" class="form-container">
+        <h2>Register</h2>
+        <input type="email" id="registerEmail" placeholder="Email" required>
+        <input type="password" id="registerPassword" placeholder="Password" required>
+        <button onclick="register()">Register</button>
+        <p id="registerError" class="error"></p>
+        <p>Already have an account? <a href="#" onclick="showLoginForm()">Login here</a></p>
+    </div>
+
+    <!-- Planner Form -->
+    <div id="plannerForm" class="form-container">
+        <h2>Manage Planners</h2>
+        <select id="plannerSelect" onchange="loadTasks()" required>
+            <option value="">Select Planner</option>
+        </select>
+        <button onclick="createPlanner()">Create New Planner</button>
+        <input type="text" id="plannerName" placeholder="New Planner Name" required>
+        <p id="plannerError" class="error"></p>
+    </div>
+
+    <!-- Task Form -->
+    <div id="taskForm" class="form-container">
+        <h2>Manage Tasks</h2>
+        <select id="taskPlannerSelect" onchange="loadTasks()">
+            <option value="">Select Planner</option>
+        </select>
+        <h3>Add/Edit Task</h3>
+        <input type="text" id="taskTitle" placeholder="Task Title" required>
+        <input type="text" id="taskDescription" placeholder="Task Description" required>
+        <select id="taskPriority">
+            <option value="low">Low Priority</option>
+            <option value="medium">Medium Priority</option>
+            <option value="high">High Priority</option>
+        </select>
+        <input type="date" id="taskDueDate" required>
+        <button onclick="addTask()">Add Task</button>
+        <div id="taskList"></div>
+    </div>
+
+    <script>
+        let userId;
+
+        // Show login form by default
+        document.getElementById('loginForm').style.display = 'block';
+        document.getElementById('registerForm').style.display = 'none';
+        document.getElementById('plannerForm').style.display = 'none';
+        document.getElementById('taskForm').style.display = 'none';
+
+        function showLoginForm() {
+            document.getElementById('registerForm').style.display = 'none';
+            document.getElementById('loginForm').style.display = 'block';
+        }
+
+        function showRegisterForm() {
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('registerForm').style.display = 'block';
+        }
+
+        // Login Function
+        async function login() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+
+            const response = await fetch('http://localhost:3000/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                userId = data.userId;
+                loadPlanners();
+                document.getElementById('loginForm').style.display = 'none';
+                document.getElementById('plannerForm').style.display = 'block';
+            } else {
+                document.getElementById('loginError').innerText = data.message;
+            }
+        }
+
+        // Register Function
+        async function register() {
+            const email = document.getElementById('registerEmail').value;
+            const password = document.getElementById('registerPassword').value;
+
+            const response = await fetch('http://localhost:3000/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                alert('Registration successful!');
+                document.getElementById('registerForm').style.display = 'none';
+                document.getElementById('loginForm').style.display = 'block';
+            } else {
+                document.getElementById('registerError').innerText = data.message;
+            }
+        }
+
+        // Load Planners
+        async function loadPlanners() {
+            const response = await fetch(`http://localhost:3000/planners/${userId}`);
+            const planners = await response.json();
+            const plannerSelect = document.getElementById('plannerSelect');
+            const taskPlannerSelect = document.getElementById('taskPlannerSelect');
+            plannerSelect.innerHTML = '<option value="">Select Planner</option>';
+            taskPlannerSelect.innerHTML = '<option value="">Select Planner</option>';
+            planners.forEach(planner => {
+                const option = document.createElement('option');
+                option.value = planner.id;
+                option.textContent = planner.name;
+                plannerSelect.appendChild(option);
+                taskPlannerSelect.appendChild(option);
+            });
+        }
+
+        // Create Planner
+        async function createPlanner() {
+            const plannerName = document.getElementById('plannerName').value;
+
+            const response = await fetch(`http://localhost:3000/planners/${userId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: plannerName })
+            });
+
+            if (response.ok) {
+                alert('Planner created successfully!');
+                document.getElementById('plannerName').value = '';
+                loadPlanners();
+            } else {
+                const data = await response.json();
+                document.getElementById('plannerError').innerText = data.message;
+            }
+        }
+
+        // Load Tasks
+        async function loadTasks() {
+            const plannerId = document.getElementById('taskPlannerSelect').value;
+            if (plannerId) {
+                document.getElementById('taskForm').style.display = 'block';
+                const response = await fetch(`http://localhost:3000/tasks/${plannerId}`);
+                const tasks = await response.json();
+                const taskList = document.getElementById('taskList');
+                taskList.innerHTML = '';
+
+                tasks.forEach(task => {
+                    const taskDiv = document.createElement('div');
+                    taskDiv.className = 'task';
+                    taskDiv.innerHTML = `
+                        <strong>${task.title}</strong><br>
+                        ${task.description}<br>
+                        Priority: ${task.priority}<br>
+                        Due: ${task.due_date}
+                        <button onclick="deleteTask(${task.id})">Delete</button>
+                        <button onclick="editTask(${task.id}, '${task.title}', '${task.description}', '${task.priority}', '${task.due_date}')">Edit</button>
+                    `;
+                    taskList.appendChild(taskDiv);
+                });
+            } else {
+                document.getElementById('taskForm').style.display = 'none';
+            }
+        }
+
+        // Add Task
+        async function addTask() {
+            const plannerId = document.getElementById('taskPlannerSelect').value;
+            const title = document.getElementById('taskTitle').value;
+            const description = document.getElementById('taskDescription').value;
+            const priority = document.getElementById('taskPriority').value;
+            const dueDate = document.getElementById('taskDueDate').value;
+
+            const response = await fetch(`http://localhost:3000/tasks/${plannerId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title, description, priority, due_date: dueDate })
+            });
+
+            if (response.ok) {
+                alert('Task added successfully!');
+                loadTasks();
+                document.getElementById('taskTitle').value = '';
+                document.getElementById('taskDescription').value = '';
+                document.getElementById('taskPriority').value = 'low';
+                document.getElementById('taskDueDate').value = '';
+            } else {
+                alert('Error adding task.');
+            }
+        }
+
+        // Delete Task
+        async function deleteTask(taskId) {
+            const response = await fetch(`http://localhost:3000/tasks/${taskId}`, {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                alert('Task deleted successfully!');
+                loadTasks();
+            } else {
+                alert('Error deleting task.');
+            }
+        }
+
+        // Edit Task
+        function editTask(taskId, title, description, priority, dueDate) {
+            document.getElementById('taskTitle').value = title;
+            document.getElementById('taskDescription').value = description;
+            document.getElementById('taskPriority').value = priority;
+            document.getElementById('taskDueDate').value = dueDate;
+
+            // You can add the logic for updating the task if needed.
+        }
+    </script>
 </body>
 </html>
